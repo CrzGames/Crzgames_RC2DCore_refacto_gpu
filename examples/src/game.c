@@ -2,6 +2,8 @@
 #include <RC2D/RC2D.h>
 #include <RC2D/RC2D_internal.h>
 
+#include <SDL3/SDL_gpu.h>
+
 static RC2D_GPUComputePipeline* computeShader;
 static RC2D_GPUShader* fragmentShader;
 static RC2D_GPUShader* vertexShader;
@@ -116,7 +118,7 @@ void rc2d_load(void)
         .has_depth_stencil_target = false
     };
 
-    graphicsPipeline.create_info = (RC2D_GPUGraphicsPipelineCreateInfo){
+    graphicsPipeline.create_info = (SDL_GPUGraphicsPipelineCreateInfo){
         .vertex_shader = vertexShader,
         .fragment_shader = fragmentShader,
         .vertex_input_state = vertexInput,
@@ -132,7 +134,7 @@ void rc2d_load(void)
     graphicsPipeline.vertex_shader_filename = RC2D_strdup("test.vertex");
     graphicsPipeline.fragment_shader_filename = RC2D_strdup("test.fragment");
 
-    bool success = rc2d_gpu_createGraphicsPipeline(&graphicsPipeline, true);
+    bool success = rc2d_gpu_createGraphicsPipeline(&graphicsPipeline);
     RC2D_assert_release(success, RC2D_LOG_CRITICAL, "Failed to create full screen shader pipeline");
 }
 

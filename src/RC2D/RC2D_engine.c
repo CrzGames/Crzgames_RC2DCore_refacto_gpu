@@ -200,7 +200,7 @@ static bool rc2d_engine_configure_swapchain(void)
                 SDL_WindowSupportsGPUSwapchainComposition(rc2d_engine_state.gpu_device, rc2d_engine_state.window, sc)) 
             {
                 // Essaye la combinaison
-                if (SDL_SetGPUSwapchainParameters(rc2d_engine_state.gpu_device, rc2d_engine_state.window, pm, sc)) 
+                if (SDL_SetGPUSwapchainParameters(rc2d_engine_state.gpu_device, rc2d_engine_state.window, sc, pm)) 
                 {
                     // Si la combinaison est supportée, on l'applique
                     rc2d_engine_state.gpu_present_mode = pm;

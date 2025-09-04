@@ -1420,7 +1420,7 @@ void rc2d_gpu_clear(void)
     colorTargetInfo.layer_or_depth_plane = 0;
     colorTargetInfo.clear_color = (SDL_FColor){ 0.0f, 0.0f, 0.0f, 1.0f };
     colorTargetInfo.load_op = SDL_GPU_LOADOP_CLEAR;
-    colorTargetInfo.store_op = rc2d_engine_state.gpu_current_sample_count_supported > SDL_GPU_SAMPLECOUNT_1 ? SDL_GPU_STOREOP_RESOLVE : SDL_GPU_STOREOP_STORE; // Résolution si multisampling
+    colorTargetInfo.store_op = SDL_GPU_STOREOP_STORE;
     colorTargetInfo.resolve_texture = NULL;
     colorTargetInfo.resolve_mip_level = 0;
     colorTargetInfo.resolve_layer = 0;
@@ -1428,39 +1428,6 @@ void rc2d_gpu_clear(void)
     colorTargetInfo.cycle_resolve_texture = rc2d_engine_state.gpu_current_sample_count_supported > SDL_GPU_SAMPLECOUNT_1;
     colorTargetInfo.padding1 = 0;
     colorTargetInfo.padding2 = 0;
-
-    // Créer une texture de résolution si multisampling
-    if (rc2d_engine_state.gpu_current_sample_count_supported > SDL_GPU_SAMPLECOUNT_1)
-    {
-        SDL_GPUTextureCreateInfo resolve_texture_info = {
-            .type = SDL_GPU_TEXTURETYPE_2D,
-            .format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM,
-            .usage = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET,
-            .width = swapchainTextureWidth,
-            .height = swapchainTextureHeight,
-            .layer_count_or_depth = 1,
-            .num_levels = 1,
-            .sample_count = SDL_GPU_SAMPLECOUNT_1, // La texture de résolution n'est pas multisample
-        };
-        rc2d_engine_state.gpu_current_resolve_texture = SDL_CreateGPUTexture(rc2d_engine_state.gpu_device, &resolve_texture_info);
-
-        /**
-         * Si la création de la texture de résolution échoue, on log l'erreur
-         * et on continue sans utiliser de texture de résolution.
-         * 
-         * Si cela marche, on l'assigne à colorTargetInfo.resolve_texture.
-         */
-        if (!rc2d_engine_state.gpu_current_resolve_texture) 
-        {
-            RC2D_log(RC2D_LOG_ERROR, "Failed to create resolve texture: %s", SDL_GetError());
-            colorTargetInfo.store_op = SDL_GPU_STOREOP_STORE;
-            colorTargetInfo.cycle_resolve_texture = false;
-        }
-        else 
-        {
-            colorTargetInfo.resolve_texture = rc2d_engine_state.gpu_current_resolve_texture;
-        }
-    }
 
     /**
      * \brief Étape 5 : Début d’un Render Pass
