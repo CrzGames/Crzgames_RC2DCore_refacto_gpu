@@ -1297,8 +1297,12 @@ bool rc2d_gpu_createGraphicsPipeline(RC2D_GPUGraphicsPipeline* graphicsPipeline)
         SDL_SetStringProperty(props, SDL_PROP_GPU_GRAPHICSPIPELINE_CREATE_NAME_STRING, graphicsPipeline->debug_name);
     }
 
-    // Copie la structure pour injection, car on ne peut pas modifier directement create_info dans graphicsPipeline
+    /**
+     * Préparer les informations de création du pipeline graphique
+     * On doit s'assurer que les paramètres correspondent à la cible de rendu actuelle.
+     */
     SDL_GPUGraphicsPipelineCreateInfo info = graphicsPipeline->create_info;
+    // Multisample — doit matcher la cible de rendu (MSAA color target)
     info.multisample_state.sample_count = rc2d_engine_state.gpu_current_sample_count_supported;
     info.props = props;
 
