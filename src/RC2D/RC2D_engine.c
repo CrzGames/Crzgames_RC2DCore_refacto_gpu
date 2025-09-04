@@ -310,6 +310,23 @@ static void rc2d_engine_stateInit(void) {
 
     // Paramètres de rendu
     rc2d_engine_state.render_scale = 1.0f;
+
+    // Letterbox / Pillarbox
+    rc2d_engine_state.letterbox_textures.mode = RC2D_LETTERBOX_NONE;
+    rc2d_engine_state.letterbox_count = 0;
+
+    rc2d_engine_state.letterbox_uniform_texture = RC2D_calloc(1, sizeof(RC2D_Image));
+    rc2d_engine_state.letterbox_top_texture = RC2D_calloc(1, sizeof(RC2D_Image));
+    rc2d_engine_state.letterbox_bottom_texture = RC2D_calloc(1, sizeof(RC2D_Image));
+    rc2d_engine_state.letterbox_left_texture = RC2D_calloc(1, sizeof(RC2D_Image));
+    rc2d_engine_state.letterbox_right_texture = RC2D_calloc(1, sizeof(RC2D_Image));
+    rc2d_engine_state.letterbox_background_texture = RC2D_calloc(1, sizeof(RC2D_Image));
+
+    if (!rc2d_engine_state.letterbox_uniform_texture || !rc2d_engine_state.letterbox_top_texture ||
+        !rc2d_engine_state.letterbox_bottom_texture || !rc2d_engine_state.letterbox_left_texture ||
+        !rc2d_engine_state.letterbox_right_texture || !rc2d_engine_state.letterbox_background_texture) {
+        RC2D_assert_release(false, RC2D_LOG_CRITICAL, "Cannot continue with invalid letterbox texture allocations");
+    }
 }
 
 /**
@@ -2269,6 +2286,14 @@ void rc2d_engine_quit(void)
         SDL_DestroyMutex(rc2d_engine_state.gpu_graphics_pipeline_mutex);
         rc2d_engine_state.gpu_graphics_pipeline_mutex = NULL;
     }
+
+    // Nettoyer les textures de letterbox
+    RC2D_safe_free(rc2d_engine_state.letterbox_uniform_texture);
+    RC2D_safe_free(rc2d_engine_state.letterbox_top_texture);
+    RC2D_safe_free(rc2d_engine_state.letterbox_bottom_texture);
+    RC2D_safe_free(rc2d_engine_state.letterbox_left_texture);
+    RC2D_safe_free(rc2d_engine_state.letterbox_right_texture);
+    RC2D_safe_free(rc2d_engine_state.letterbox_background_texture);
 
     /* Annuler la revendication de la fenêtre */
     if (rc2d_engine_state.gpu_device && rc2d_engine_state.window) 

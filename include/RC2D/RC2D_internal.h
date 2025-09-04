@@ -240,6 +240,25 @@ typedef struct RC2D_EngineState {
 
     // RC2D : Echelle de rendu
     float render_scale;
+
+    // RC2D : Letterbox / Pillarbox
+    RC2D_LetterboxTextures letterbox_textures;
+    RC2D_Rect letterbox_areas[4]; // [0]: gauche, [1]: droite, [2]: haut, [3]: bas
+    int letterbox_count;
+
+    RC2D_Image* letterbox_uniform_texture;
+
+    RC2D_Image* letterbox_top_texture;
+    RC2D_Image* letterbox_bottom_texture;
+    RC2D_Image* letterbox_left_texture;
+    RC2D_Image* letterbox_right_texture;
+
+    RC2D_Image* letterbox_background_texture;
+
+    // Pour RC2D_LETTERBOX_SHADER
+    RC2D_GPUGraphicsPipeline letterbox_shader_pipeline;
+    RC2D_GPUShader* letterbox_vertex_shader;
+    RC2D_GPUShader* letterbox_fragment_shader;
 } RC2D_EngineState;
 
 /**
