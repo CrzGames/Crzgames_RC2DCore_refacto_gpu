@@ -296,6 +296,12 @@ static void rc2d_engine_stateInit(void) {
         return;
     }
 
+    // MSAA
+    rc2d_engine_state.gpu_current_sample_count_supported = SDL_GPU_SAMPLECOUNT_1; // Pas de MSAA par défaut
+    rc2d_engine_state.gpu_current_msaa_color_texture = NULL;
+    rc2d_engine_state.gpu_current_msaa_color_texture_width = 0;
+    rc2d_engine_state.gpu_current_msaa_color_texture_height = 0;
+
     // État d'exécution de la boucle de jeu
     rc2d_engine_state.fps = 60;
     rc2d_engine_state.delta_time = 0.0;

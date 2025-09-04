@@ -158,7 +158,6 @@ typedef struct RC2D_EngineState {
      * - Pointeur vers la texture de swapchain actuelle (SDL_GPUTexture)
      * - Pointeur vers le rendu actuel (SDL_GPURenderPass)
      * - Pointeur vers la vue actuelle (SDL_GPUViewport)
-     * - Pointeur vers le pipeline graphique actuel (SDL_GPUGraphicsPipeline)
      */
     SDL_GPUDevice* gpu_device;
     SDL_GPUPresentMode gpu_present_mode;
@@ -167,8 +166,18 @@ typedef struct RC2D_EngineState {
     SDL_GPUTexture* gpu_current_swapchain_texture;
     SDL_GPURenderPass* gpu_current_render_pass;
     SDL_GPUViewport* gpu_current_viewport;
-    SDL_GPUSampleCount gpu_current_sample_count_supported; // Le meilleur niveau de MSAA supporté par le GPU (sois 8x, 4x, 2x ou 1x)
-    SDL_GPUTexture* gpu_current_resolve_texture; // Texture de résolution pour le multisampling (si applicable via MSAA)
+
+    /**
+     * MSAA (Multi-Sample Anti-Aliasing)
+     * - Le niveau de MSAA actuellement supporté par le GPU (sois 8x, 4x, 2x ou 1x)
+     * - Texture de résolution pour le multisampling (si applicable via MSAA)
+     * - Largeur de la texture de résolution MSAA
+     * - Hauteur de la texture de résolution MSAA
+     */
+    SDL_GPUSampleCount gpu_current_sample_count_supported;
+    SDL_GPUTexture* gpu_current_msaa_color_texture;
+    Uint32 gpu_current_msaa_color_texture_width;
+    Uint32 gpu_current_msaa_color_texture_height;
 
     /**
      * Mise en cache des shaders graphiques

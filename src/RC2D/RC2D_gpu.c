@@ -22,6 +22,79 @@
 static RC2D_Color current_color = {255, 255, 255, 255};
 
 /**
+ * \brief Assure que la texture de résolution MSAA est correctement créée et à jour.
+ * 
+ * Cette fonction vérifie si la texture de résolution MSAA doit être (re)créée en fonction
+ * de la taille actuelle de la texture de swapchain. Si nécessaire, elle libère l'ancienne
+ * texture et en crée une nouvelle avec les dimensions appropriées.
+ * 
+ * \param {Uint32} swapchainTextureWidth - La largeur actuelle de la texture de swapchain.
+ * \param {Uint32} swapchainTextureHeight - La hauteur actuelle de la texture de swapchain.
+ * 
+ * \since Cette fonction est disponible depuis RC2D 1.0.0.
+ */
+static void rc2d_ensure_msaa_color_target(Uint32 swapchainTextureWidth, Uint32 swapchainTextureHeight)
+{
+    // Pas de MSAA → libère si existait
+    if (rc2d_engine_state.gpu_current_sample_count_supported <= SDL_GPU_SAMPLECOUNT_1) 
+    {
+        if (rc2d_engine_state.gpu_current_msaa_color_texture) 
+        {
+            SDL_ReleaseGPUTexture(rc2d_gpu_getDevice(), rc2d_engine_state.gpu_current_msaa_color_texture);
+            rc2d_engine_state.gpu_current_msaa_color_texture = NULL;
+        }
+
+        rc2d_engine_state.gpu_current_msaa_color_texture_width  = 0;
+        rc2d_engine_state.gpu_current_msaa_color_texture_height = 0;
+        
+        return;
+    }
+
+    /**
+     * Vérifie si la texture de résolution MSAA doit être (re)créée
+     * - Si elle n'existe pas encore
+     * - Si sa largeur ou sa hauteur ne correspond pas à celle de la swapchain
+     * Si aucune de ces conditions n'est remplie, on ne fait rien
+     */
+    const bool need_recreate =
+        rc2d_engine_state.gpu_current_msaa_color_texture == NULL ||
+        rc2d_engine_state.gpu_current_msaa_color_texture_width  != swapchainTextureWidth ||
+        rc2d_engine_state.gpu_current_msaa_color_texture_height != swapchainTextureHeight;
+    if (!need_recreate) return;
+
+    /**
+     * Libérer la texture de résolution si elle a été créée ET que la taille a changé.
+     */
+    if (rc2d_engine_state.gpu_current_msaa_color_texture) 
+    {
+        SDL_ReleaseGPUTexture(rc2d_gpu_getDevice(), rc2d_engine_state.gpu_current_msaa_color_texture);
+        rc2d_engine_state.gpu_current_msaa_color_texture = NULL;
+    }
+
+    /**
+     * Créer une nouvelle texture de résolution MSAA avec les dimensions de la swapchain
+     */
+    SDL_GPUTextureCreateInfo ci = {
+        .type = SDL_GPU_TEXTURETYPE_2D,
+        .format = SDL_GetGPUSwapchainTextureFormat(rc2d_gpu_getDevice(), rc2d_window_getWindow()),                        // même format que la swapchain (SDR/HDR)
+        .usage  = SDL_GPU_TEXTUREUSAGE_COLOR_TARGET,
+        .width  = swapchainTextureWidth, 
+        .height = swapchainTextureHeight,
+        .layer_count_or_depth = 1,
+        .num_levels = 1,
+        .sample_count = rc2d_engine_state.gpu_current_sample_count_supported // multisample
+    };
+    rc2d_engine_state.gpu_current_msaa_color_texture = SDL_CreateGPUTexture(rc2d_gpu_getDevice(), &ci);
+
+    // Vérifier que la création a réussi
+    RC2D_assert_release(rc2d_engine_state.gpu_current_msaa_color_texture != NULL, RC2D_LOG_CRITICAL,"Failed to create MSAA color target: %s", SDL_GetError());
+
+    // Mettre à jour les dimensions stockées de la texture de résolution MSAA par rapport à la swapchain
+    rc2d_engine_state.gpu_current_msaa_color_texture_width  = swapchainTextureWidth;
+    rc2d_engine_state.gpu_current_msaa_color_texture_height = swapchainTextureHeight;
+}
+
+/**
  * Récupère le timestamp de la dernière modification d'un fichier.
  * 
  * @param {const char*} path - Le chemin du fichier dont on veut connaître la date de dernière modification.
@@ -1224,8 +1297,9 @@ bool rc2d_gpu_createGraphicsPipeline(RC2D_GPUGraphicsPipeline* graphicsPipeline)
         SDL_SetStringProperty(props, SDL_PROP_GPU_GRAPHICSPIPELINE_CREATE_NAME_STRING, graphicsPipeline->debug_name);
     }
 
-    // Copie la structure pour injection, en modifiant uniquement props
+    // Copie la structure pour injection, car on ne peut pas modifier directement create_info dans graphicsPipeline
     SDL_GPUGraphicsPipelineCreateInfo info = graphicsPipeline->create_info;
+    info.multisample_state.sample_count = rc2d_engine_state.gpu_current_sample_count_supported;
     info.props = props;
 
     // Créer le pipeline graphique
@@ -1390,6 +1464,12 @@ void rc2d_gpu_clear(void)
     }
 
     /**
+     * MSAA : Si le GPU supporte le MSAA (Multi-Sample Anti-Aliasing),
+     * on doit s'assurer que la texture de swapchain est compatible avec le MSAA.
+    */
+    rc2d_ensure_msaa_color_target(swapchainTextureWidth, swapchainTextureHeight);
+
+    /**
      * \brief Étape 4 : Création du ColorTargetInfo pour le render pass
      *
      * Cette structure décrit **quelle texture** sera utilisée comme cible de rendu (ici la swapchain),
@@ -1420,12 +1500,24 @@ void rc2d_gpu_clear(void)
     colorTargetInfo.layer_or_depth_plane = 0;
     colorTargetInfo.clear_color = (SDL_FColor){ 0.0f, 0.0f, 0.0f, 1.0f };
     colorTargetInfo.load_op = SDL_GPU_LOADOP_CLEAR;
-    colorTargetInfo.store_op = SDL_GPU_STOREOP_STORE;
-    colorTargetInfo.resolve_texture = NULL;
-    colorTargetInfo.resolve_mip_level = 0;
-    colorTargetInfo.resolve_layer = 0;
-    colorTargetInfo.cycle = true;
-    colorTargetInfo.cycle_resolve_texture = rc2d_engine_state.gpu_current_sample_count_supported > SDL_GPU_SAMPLECOUNT_1;
+    if (rc2d_engine_state.gpu_current_sample_count_supported > SDL_GPU_SAMPLECOUNT_1) 
+    {
+        // Rendre dans la texture MSAA et RESOLVE vers la swapchain
+        colorTargetInfo.texture = rc2d_engine_state.gpu_current_msaa_color_texture;         // MULTISAMPLE
+        colorTargetInfo.store_op = SDL_GPU_STOREOP_RESOLVE;
+        colorTargetInfo.resolve_texture = rc2d_engine_state.gpu_current_swapchain_texture;  // SINGLE-SAMPLE
+        colorTargetInfo.cycle = true;
+        colorTargetInfo.cycle_resolve_texture = true;
+    } 
+    else 
+    {
+        // Pas de MSAA : rendu direct
+        colorTargetInfo.texture = rc2d_engine_state.gpu_current_swapchain_texture;
+        colorTargetInfo.store_op = SDL_GPU_STOREOP_STORE;
+        colorTargetInfo.resolve_texture = NULL;
+        colorTargetInfo.cycle = true;
+        colorTargetInfo.cycle_resolve_texture = false;
+    }
     colorTargetInfo.padding1 = 0;
     colorTargetInfo.padding2 = 0;
 
@@ -1490,15 +1582,6 @@ void rc2d_gpu_present(void)
     if (rc2d_engine_state.gpu_current_command_buffer && !rc2d_engine_state.skip_rendering)
     {
         SDL_SubmitGPUCommandBuffer(rc2d_engine_state.gpu_current_command_buffer);
-    }
-
-    /**
-     * Libérer la texture de résolution si elle a été créée.
-     */
-    if (rc2d_engine_state.gpu_current_resolve_texture)
-    {
-        SDL_ReleaseGPUTexture(rc2d_engine_state.gpu_device, rc2d_engine_state.gpu_current_resolve_texture);
-        rc2d_engine_state.gpu_current_resolve_texture = NULL;
     }
 
     /**
